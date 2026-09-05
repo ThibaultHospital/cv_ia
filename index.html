@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon CV Interactif & IA Ultra-Rapide</title>
     
-    <!-- Chargement global et immédiat des outils -->
-    <script src="https://jsdelivr.net"></script>
+    <!-- Chargement global de l'IA (CDN standard) -->
     <script src="https://jsdelivr.net"></script>
     
     <style>
@@ -24,7 +23,10 @@
         input { flex: 1; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; }
         button { padding: 0.75rem 1.25rem; background: var(--primary); color: white; border: none; border-radius: 0.25rem; cursor: pointer; }
         button:disabled { background: #cbd5e1; cursor: not-allowed; }
-        .cv-content h1 { color: var(--primary); border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; }
+        .cv-content h1 { color: var(--primary); border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; margin-top: 0; }
+        .cv-content h2 { color: #1e3a8a; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem; margin-top: 1.5rem; }
+        .cv-content p { line-height: 1.5; }
+        .cv-content li { margin-bottom: 0.25rem; }
     </style>
 </head>
 <body>
@@ -56,7 +58,19 @@
             if (e.key === 'Enter') actionSendMessage();
         });
 
-        // 1. CHARGEMENT ASYNCHRONE INSPIRÉ DE VOTRE CODE (Simple, Linéaire et Robuste)
+        // Mini-convertisseur Markdown natif très rapide pour éviter d'importer 'marked'
+        function parseMarkdownLéger(md) {
+            return md
+                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                .replace(/^\- (.*$)/gim, '<li>$1</li>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n([^\n<>]+)\n/g, '<p>$1</p>');
+        }
+
+        // CHARGEMENT ASYNCHRONE
         async function startApp() {
             const statusEl = document.getElementById('ai-status');
             const userInput = document.getElementById('user-input');
@@ -64,25 +78,24 @@
             const welcomeMsg = document.getElementById('welcome-msg');
 
             try {
-                // Étape A : Charger le fichier Markdown de manière brute
-                const response = await fetch('cv.md');
-                if (!response.ok) throw new Error(`Fichier cv.md introuvable (Code HTTP ${response.status})`);
+                // Étape 1 : Récupérer le fichier cv.md
+                const response = await fetch('cv.md?v=' + Math.random());
+                if (!response.ok) throw new Error(`Fichier cv.md introuvable (Erreur HTTP ${response.status})`);
                 
                 cvTextContent = await response.text();
                 
-                // Conversion et affichage immédiat à gauche
-                document.getElementById('cv-render').innerHTML = marked.parse(cvTextContent);
+                // Rendu HTML via notre fonction interne sans dépendance externe
+                document.getElementById('cv-render').innerHTML = parseMarkdownLéger(cvTextContent);
 
-                // Étape B : Lancement du téléchargement de l'IA une fois le fichier traité
+                // Étape 2 : Lancement du téléchargement de l'IA
                 statusEl.innerText = "Téléchargement IA (~40 Mo)...";
                 
-                // Utilisation de l'API globale vérifiée de Transformers.js
                 qaPipeline = await window.transformers.pipeline('question-answering', 'Xenova/distilbert-base-cased-distilled-squad');
                 
-                // Étape C : Libération de l'interface utilisateur
+                // Étape 3 : Libération de l'interface
                 statusEl.innerText = "⚡ Prêt (Local)";
                 statusEl.style.background = "#22c55e";
-                welcomeMsg.innerText = "Modèle prêt ! Posez-moi vos questions sur le parcours, les compétences ou les formations figurant sur le CV.";
+                welcomeMsg.innerText = "Modèle prêt ! Posez-moi vos questions sur le parcours ou les compétences figurant sur le CV.";
                 
                 userInput.disabled = false;
                 sendBtn.disabled = false;
@@ -93,7 +106,7 @@
                     <p style='color:red; font-weight:bold;'>
                         ❌ Erreur d'initialisation de l'application.<br>
                         <span style='font-size:0.85rem; color:#666;'>
-                            Détails : ${error.message}. Vérifiez que 'cv.md' se trouve bien au même niveau que 'index.html'.
+                            Détails : ${error.message}. Assurez-vous que le fichier 'cv.md' est bien orthographié et présent à la racine.
                         </span>
                     </p>`;
                 statusEl.innerText = "❌ Échec";
@@ -110,7 +123,7 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        // 2. TRAITEMENT DE LA QUESTION ET SÉCURITÉ DE VERROUILLAGE
+        // TRAITEMENT DE LA QUESTION ET VERROUILLAGE
         async function actionSendMessage() {
             const userInput = document.getElementById('user-input');
             const sendBtn = document.getElementById('send-btn');
@@ -121,15 +134,13 @@
             appendMessage(query, 'user');
             userInput.value = '';
             
-            // Verrouillage des contrôles pendant le calcul
             userInput.disabled = true;
             sendBtn.disabled = true;
 
             try {
-                // L'IA cherche le fragment de réponse uniquement dans le texte brut de cvTextContent
                 const result = await qaPipeline(query, cvTextContent);
                 
-                // Seuil de confiance strict pour bloquer le hors-sujet
+                // Filtre de sécurité strict contre le hors-sujet
                 if (result.score < 0.01 || !result.answer.trim()) {
                     appendMessage("Désolé, je ne trouve pas cette réponse dans le document. Je suis verrouillé pour ne répondre qu'à partir des faits présents dans le CV.", 'ai');
                 } else {
@@ -140,13 +151,12 @@
                 console.error(err);
             }
 
-            // Libération des contrôles
             userInput.disabled = false;
             sendBtn.disabled = false;
             userInput.focus();
         }
 
-        // Lancement immédiat et direct de l'application au chargement du script
+        // Lancement immédiat de l'application
         startApp();
     </script>
 </body>

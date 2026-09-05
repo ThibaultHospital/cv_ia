@@ -4,20 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon CV Interactif & IA Ultra-Rapide</title>
-    <!-- Marked pour le Markdown -->
+    <!-- Marked pour convertir le Markdown en HTML -->
     <script src="https://jsdelivr.net"></script>
-    <!-- Transformers.js pour l'IA locale hyper rapide -->
-    <script type="module">
-        import { pipeline, env } from 'https://jsdelivr.net';
-        window.pipeline = pipeline;
-    </script>
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; }
         body { font-family: system-ui, sans-serif; margin: 0; padding: 0; display: flex; background: var(--bg); color: var(--text); height: 100vh; }
         #cv-container { width: 55%; padding: 2rem; overflow-y: auto; background: #ffffff; border-right: 1px solid #e2e8f0; }
         #ai-container { width: 45%; display: flex; flex-direction: column; background: #f1f5f9; }
-        .chat-header { padding: 1rem; background: var(--primary); color: white; font-weight: bold; display: flex; justify-content: space-between; }
-        .status { font-size: 0.8rem; background: rgba(255,255,255,0.2); padding: 0.2rem 0.5rem; border-radius: 4px; }
+        .chat-header { padding: 1rem; background: var(--primary); color: white; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .status { font-size: 0.8rem; background: rgba(255,255,255,0.3); padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: normal; }
         .chat-messages { flex: 1; padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; }
         .message { padding: 0.75rem; border-radius: 0.5rem; max-width: 85%; line-height: 1.4; font-size: 0.95rem; }
         .message.user { background: var(--primary); color: white; align-self: flex-end; }
@@ -32,7 +27,7 @@
 <body>
 
     <div id="cv-container">
-        <div id="cv-render" class="cv-content">Chargement du CV en cours...</div>
+        <div id="cv-render" class="cv-content">Chargement du CV...</div>
     </div>
 
     <div id="ai-container">
@@ -41,54 +36,66 @@
             <span id="ai-status" class="status">Initialisation...</span>
         </div>
         <div class="chat-messages" id="chat-messages">
-            <div class="message ai">Bonjour ! Je suis une IA locale. Posez-moi une question sur le parcours, les compétences ou les projets du candidat décrits dans le CV.</div>
+            <div class="message ai">Bonjour ! Le CV s'est chargé avec succès. Je prépare le modèle d'analyse pour répondre à vos questions.</div>
         </div>
         <div class="chat-input-area">
             <input type="text" id="user-input" placeholder="Posez une question sur le CV..." disabled>
-            <button id="send-btn" onclick="sendMessage()" disabled>Envoyer</button>
+            <button id="send-btn" disabled>Envoyer</button>
         </div>
     </div>
 
-    <script>
+    <!-- Tout le script est encapsulé en tant que module pour gérer correctement les importations modernes -->
+    <script type="module">
+        import { pipeline } from 'https://jsdelivr.net';
+
         let cvTextContent = "";
         let qaPipeline = null;
 
-        // 1. Charger et afficher le fichier Markdown
-      async function loadMarkdownCV() {
-    try {
-        // Le paramètre ?t= force le navigateur à télécharger la version la plus récente
-        const response = await fetch('./cv.md?t=' + Date.now());
-        if (!response.ok) {
-            throw new Error(`Erreur HTTP : ${response.status}`);
-        }
-        cvTextContent = await response.text();
-        document.getElementById('cv-render').innerHTML = marked.parse(cvTextContent);
-    } catch (e) {
-        document.getElementById('cv-render').innerHTML = `
-            <p style='color:red; font-weight:bold;'>
-                ❌ Impossible de charger le fichier 'cv.md'.<br>
-                <span style='font-size:0.85rem; color:#666;'>
-                    Vérifiez que le fichier est nommé exactement <b>cv.md</b> (tout en minuscules) 
-                    et qu'il se trouve dans le même dossier que index.html.
-                </span>
-            </p>`;
-        console.error("Erreur de chargement du Markdown :", e);
-    }
-}
+        // Configuration des éléments du DOM
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const statusEl = document.getElementById('ai-status');
 
-        // 2. Initialiser le modèle de Question-Answering (Poids ultra-léger ~40Mo, chargement instantané)
-        async function initIA() {
-            const statusEl = document.getElementById('ai-status');
+        // Attacher l'événement au bouton manuellement (nécessaire en mode type="module")
+        sendBtn.addEventListener('click', sendMessage);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // 1. Charger et afficher le fichier Markdown de manière robuste
+        async function loadMarkdownCV() {
             try {
-                // Utilise un modèle de Question-Answering extractif : il extrait TOUJOURS la réponse directement du texte. Moins de risques d'hallucination, verrouillage total.
-                qaPipeline = await window.pipeline('question-answering', 'Xenova/distilbert-base-cased-distilled-squad');
+                const response = await fetch('./cv.md?t=' + Date.now());
+                if (!response.ok) throw new Error(`Erreur HTTP : ${response.status}`);
+                
+                cvTextContent = await response.text();
+                document.getElementById('cv-render').innerHTML = marked.parse(cvTextContent);
+            } catch (e) {
+                document.getElementById('cv-render').innerHTML = `
+                    <p style='color:red; font-weight:bold;'>
+                        ❌ Erreur : Impossible de lire le fichier 'cv.md'.<br>
+                        <span style='font-size:0.85rem; color:#666;'>
+                            Le script n'a pas pu récupérer le fichier sur GitHub Pages. Vérifiez son emplacement.
+                        </span>
+                    </p>`;
+                console.error(e);
+            }
+        }
+
+        // 2. Initialisation de l'IA locale
+        async function initIA() {
+            try {
+                statusEl.innerText = "Téléchargement du modèle (IA)...";
+                // Modèle ultra-léger (~40Mo) idéal pour le web, stocké en cache après la première visite
+                qaPipeline = await pipeline('question-answering', 'Xenova/distilbert-base-cased-distilled-squad');
+                
                 statusEl.innerText = "⚡ Prêt (Local)";
                 statusEl.style.background = "#22c55e";
-                document.getElementById('user-input').disabled = false;
-                document.getElementById('send-btn').disabled = false;
+                userInput.disabled = false;
+                sendBtn.disabled = false;
             } catch (error) {
-                statusEl.innerText = "❌ Erreur de chargement";
-                console.error(error);
+                statusEl.innerText = "❌ Erreur IA";
+                console.error("Erreur d'initialisation du modèle :", error);
             }
         }
 
@@ -101,42 +108,43 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        // 3. Traitement de la question avec verrouillage strict
+        // 3. Traitement de la question et sécurité de verrouillage
         async function sendMessage() {
-            const input = document.getElementById('user-input');
-            const query = input.value.trim();
+            const query = userInput.value.trim();
             if (!query || !qaPipeline) return;
 
             appendMessage(query, 'user');
-            input.value = '';
-
-            // Bloquer temporairement l'interface pendant le calcul
-            input.disabled = true;
+            userInput.value = '';
+            userInput.disabled = true;
+            sendBtn.disabled = true;
 
             try {
-                // Exécution locale de l'IA en confrontant directement la question au contenu textuel brut du CV
+                // L'IA cherche la réponse uniquement dans la chaîne de caractères brute de votre CV Markdown
                 const result = await qaPipeline(query, cvTextContent);
                 
-                // Sécurité : Si le score de confiance est trop bas, on verrouille la réponse
+                // Seuil de tolérance : si le score est trop bas, la question sort du cadre du CV
                 if (result.score < 0.01 || !result.answer.trim()) {
-                    appendMessage("Désolé, je ne trouve pas cette information de manière explicite dans le CV. Je suis verrouillé pour ne répondre qu'aux éléments factuels présents sur la page.", 'ai');
+                    appendMessage("Désolé, je ne trouve pas cette information de manière explicite dans le CV. Mon système est verrouillé pour ne répondre qu'aux éléments factuels présents sur la page.", 'ai');
                 } else {
-                    // Réponse exacte extraite du texte
                     appendMessage(`D'après le CV : "... ${result.answer.trim()} ..."`, 'ai');
                 }
             } catch (err) {
-                appendMessage("Une erreur est survenue lors de l'analyse.", 'ai');
+                appendMessage("Une erreur est survenue lors de l'analyse de votre question.", 'ai');
+                console.error(err);
             }
 
-            input.disabled = false;
-            input.focus();
+            userInput.disabled = false;
+            sendBtn.disabled = false;
+            userInput.focus();
         }
 
-        window.onload = () => {
-            loadMarkdownCV();
-            // Lancer le chargement de l'IA dès l'ouverture (mise en cache automatique par le navigateur)
-            setTimeout(initIA, 500); 
-        };
+        // Lancement séquentiel
+        async function start() {
+            await loadMarkdownCV();
+            await initIA();
+        }
+
+        start();
     </script>
 </body>
 </html>

@@ -386,29 +386,27 @@ function normalize(s) {
     return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-function keywordSearch(question) {
+function scoreSections(question) {
     const qWords = normalize(question)
         .split(/\W+/)
         .filter(w => w.length > 2);
 
-    if (!qWords.length) return null;
+    return cvSections
+        .map(section => {
+            const text = normalize(section.title + " " + section.content.join(" "));
+            let score = 0;
+            for (const w of qWords) {
+                if (text.includes(w)) score++;
+            }
+            return { section, score };
+        })
+        .sort((a, b) => b.score - a.score);
+}
 
-    let best = null;
-    let bestScore = 0;
-
-    for (const section of cvSections) {
-        const text = normalize(section.title + " " + section.content.join(" "));
-        let score = 0;
-        for (const w of qWords) {
-            if (text.includes(w)) score++;
-        }
-        if (score > bestScore) {
-            bestScore = score;
-            best = section;
-        }
-    }
-
-    if (!best || bestScore === 0) return null;
+function keywordSearch(question) {
+    const ranked = scoreSections(question);
+    if (!ranked.length || ranked[0].score === 0) return null;
+    const best = ranked[0].section;
     return best.title + " :\n" + best.content.join(" ");
 }
 
@@ -535,14 +533,20 @@ async function askAI(question) {
                 addMessage("Je n'ai pas trouvé de passage du CV correspondant à cette question.", "ai");
             }
         } else {
-            // Le modèle ne peut lire qu'un texte assez court à la fois (quelques
-            // centaines de mots). Sur un CV entier passé d'un bloc, la réponse est
-            // souvent tronquée ou peu fiable. On interroge donc chaque section du CV
-            // séparément, puis on garde la réponse avec le meilleur score.
+            // Le modèle ne peut lire qu'un texte assez court à la fois, et si on le
+            // force à chercher dans des sections hors sujet (ex: "Sport" pour une
+            // question sur l'expérience professionnelle), il "invente" quand même
+            // une réponse avec une confiance parfois trompeuse. On limite donc la
+            // recherche IA aux sections déjà identifiées comme pertinentes par
+            // mots-clés, plutôt que de balayer tout le CV section par section.
+            const ranked = scoreSections(question);
+            const candidates = ranked.filter(r => r.score > 0).slice(0, 3);
+            const sectionsToSearch = candidates.length ? candidates.map(c => c.section) : cvSections;
+
             let best = null;
             let bestSectionTitle = "";
 
-            for (const section of cvSections) {
+            for (const section of sectionsToSearch) {
                 const context = section.title + ". " + section.content.join(" ");
                 if (context.trim().length < 5) continue;
 
@@ -561,9 +565,8 @@ async function askAI(question) {
 
             thinking.remove();
 
-            if (!best || best.score < 0.01) {
-                // Le modèle n'est pas confiant : on propose quand même le passage
-                // le plus pertinent trouvé par mots-clés, plutôt que de ne rien dire.
+            // Seuil relevé : en dessous, la réponse du modèle n'est pas fiable.
+            if (!best || best.score < 0.2) {
                 const fallback = keywordSearch(question);
                 if (fallback) {
                     addMessage(

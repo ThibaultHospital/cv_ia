@@ -1,161 +1,1199 @@
+```html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mon CV Interactif & IA Autonome</title>
-    
-    <!-- Importation globale ultra-stable de Transformers.js -->
-    <script src="https://jsdelivr.net"></script>
-    
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="CV interactif de Thibault Hospital avec assistant IA local."
+    >
+
+    <title>Thibault Hospital — CV interactif & Assistant IA</title>
+
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; }
-        body { font-family: system-ui, sans-serif; margin: 0; padding: 0; display: flex; background: var(--bg); color: var(--text); height: 100vh; }
-        #cv-container { width: 55%; padding: 2rem; overflow-y: auto; background: #ffffff; border-right: 1px solid #e2e8f0; }
-        #ai-container { width: 45%; display: flex; flex-direction: column; background: #f1f5f9; }
-        .chat-header { padding: 1rem; background: var(--primary); color: white; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
-        .status { font-size: 0.8rem; background: rgba(255,255,255,0.3); padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: normal; }
-        .chat-messages { flex: 1; padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; }
-        .message { padding: 0.75rem; border-radius: 0.5rem; max-width: 85%; line-height: 1.4; font-size: 0.95rem; }
-        .message.user { background: var(--primary); color: white; align-self: flex-end; }
-        .message.ai { background: white; color: var(--text); align-self: flex-start; border: 1px solid #e2e8f0; }
-        .chat-input-area { padding: 1rem; display: flex; gap: 0.5rem; background: white; border-top: 1px solid #e2e8f0; }
-        input { flex: 1; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; }
-        button { padding: 0.75rem 1.25rem; background: var(--primary); color: white; border: none; border-radius: 0.25rem; cursor: pointer; }
-        button:disabled { background: #cbd5e1; cursor: not-allowed; }
-        .cv-content h1 { color: var(--primary); border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; margin-top: 0; }
-        .cv-content h2 { color: #1e3a8a; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem; margin-top: 1.5rem; }
-        .cv-content p { line-height: 1.5; }
-        .cv-content li { margin-bottom: 0.25rem; }
+
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --muted: #64748b;
+            --border: #e2e8f0;
+            --chat-bg: #f1f5f9;
+            --success: #16a34a;
+            --error: #dc2626;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family:
+                system-ui,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                Roboto,
+                Arial,
+                sans-serif;
+
+            background: var(--bg);
+            color: var(--text);
+
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* =========================================================
+           CV
+        ========================================================= */
+
+        #cv-container {
+            width: 60%;
+            height: 100vh;
+
+            padding: 40px;
+
+            overflow-y: auto;
+
+            background: white;
+
+            border-right: 1px solid var(--border);
+        }
+
+        #cv-render {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .cv-content {
+            line-height: 1.6;
+        }
+
+        .cv-content h1 {
+            color: var(--primary);
+
+            font-size: 2.2rem;
+
+            margin-top: 0;
+
+            padding-bottom: 12px;
+
+            border-bottom: 3px solid var(--primary);
+        }
+
+        .cv-content h2 {
+            color: #1e3a8a;
+
+            font-size: 1.45rem;
+
+            margin-top: 32px;
+
+            padding-bottom: 7px;
+
+            border-bottom: 1px solid var(--border);
+        }
+
+        .cv-content h3 {
+            color: #334155;
+
+            margin-top: 22px;
+        }
+
+        .cv-content p {
+            margin: 8px 0;
+        }
+
+        .cv-content ul {
+            padding-left: 25px;
+        }
+
+        .cv-content li {
+            margin-bottom: 6px;
+        }
+
+        .cv-content strong {
+            color: #0f172a;
+        }
+
+        .cv-loading {
+            padding: 40px;
+
+            text-align: center;
+
+            color: var(--muted);
+        }
+
+        .cv-error {
+            padding: 25px;
+
+            border: 1px solid #fecaca;
+
+            border-radius: 10px;
+
+            background: #fef2f2;
+
+            color: var(--error);
+        }
+
+        /* =========================================================
+           ASSISTANT
+        ========================================================= */
+
+        #ai-container {
+            width: 40%;
+            height: 100vh;
+
+            display: flex;
+            flex-direction: column;
+
+            background: var(--chat-bg);
+        }
+
+        .chat-header {
+            min-height: 70px;
+
+            padding: 15px 20px;
+
+            background: var(--primary);
+
+            color: white;
+
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            gap: 15px;
+        }
+
+        .chat-title {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .status {
+            padding: 5px 9px;
+
+            border-radius: 20px;
+
+            background: rgba(255,255,255,0.18);
+
+            font-size: 0.75rem;
+
+            white-space: nowrap;
+        }
+
+        .status.ready {
+            background: var(--success);
+        }
+
+        .status.error {
+            background: var(--error);
+        }
+
+        .chat-messages {
+            flex: 1;
+
+            padding: 20px;
+
+            overflow-y: auto;
+
+            display: flex;
+            flex-direction: column;
+
+            gap: 12px;
+        }
+
+        .message {
+            max-width: 88%;
+
+            padding: 12px 15px;
+
+            border-radius: 12px;
+
+            line-height: 1.5;
+
+            font-size: 0.95rem;
+
+            word-wrap: break-word;
+        }
+
+        .message.ai {
+            align-self: flex-start;
+
+            background: white;
+
+            border: 1px solid var(--border);
+        }
+
+        .message.user {
+            align-self: flex-end;
+
+            background: var(--primary);
+
+            color: white;
+        }
+
+        .message.system {
+            align-self: center;
+
+            background: transparent;
+
+            color: var(--muted);
+
+            font-size: 0.8rem;
+
+            text-align: center;
+        }
+
+        .chat-input-area {
+            padding: 15px;
+
+            background: white;
+
+            border-top: 1px solid var(--border);
+
+            display: flex;
+
+            gap: 10px;
+        }
+
+        #user-input {
+            flex: 1;
+
+            min-width: 0;
+
+            padding: 12px 14px;
+
+            border: 1px solid #cbd5e1;
+
+            border-radius: 8px;
+
+            font-size: 0.95rem;
+
+            outline: none;
+        }
+
+        #user-input:focus {
+            border-color: var(--primary);
+        }
+
+        #send-btn {
+            padding: 12px 18px;
+
+            border: 0;
+
+            border-radius: 8px;
+
+            background: var(--primary);
+
+            color: white;
+
+            font-weight: 600;
+
+            cursor: pointer;
+        }
+
+        #send-btn:hover:not(:disabled) {
+            background: var(--primary-dark);
+        }
+
+        #send-btn:disabled {
+            background: #cbd5e1;
+
+            cursor: not-allowed;
+        }
+
+        /* =========================================================
+           MOBILE
+        ========================================================= */
+
+        @media (max-width: 900px) {
+
+            body {
+                overflow: auto;
+
+                display: block;
+            }
+
+            #cv-container,
+            #ai-container {
+                width: 100%;
+                height: auto;
+            }
+
+            #cv-container {
+                min-height: 70vh;
+
+                padding: 25px;
+            }
+
+            #ai-container {
+                min-height: 500px;
+            }
+
+        }
+
     </style>
 </head>
+
 <body>
 
-    <div id="cv-container">
-        <div id="cv-render" class="cv-content">Chargement du CV...</div>
-    </div>
+    <!-- =========================================================
+         CV
+    ========================================================= -->
 
-    <div id="ai-container">
-        <div class="chat-header">
-            <span>🤖 Assistant CV (IA Verrouillée)</span>
-            <span id="ai-status" class="status">Initialisation...</span>
-        </div>
-        <div class="chat-messages" id="chat-messages">
-            <div class="message ai" id="welcome-msg">Bonjour ! Je télécharge le modèle IA dans votre navigateur pour pouvoir analyser ce CV. Veuillez patienter...</div>
-        </div>
-        <div class="chat-input-area">
-            <input type="text" id="user-input" placeholder="Attente du modèle IA..." disabled>
-            <button id="send-btn" onclick="actionSendMessage()" disabled>Envoyer</button>
-        </div>
-    </div>
+    <main id="cv-container">
 
-    <script>
+        <div
+            id="cv-render"
+            class="cv-content"
+        >
+            <div class="cv-loading">
+                Chargement du CV...
+            </div>
+        </div>
+
+    </main>
+
+
+    <!-- =========================================================
+         ASSISTANT IA
+    ========================================================= -->
+
+    <aside id="ai-container">
+
+        <header class="chat-header">
+
+            <div class="chat-title">
+                🤖 Assistant CV
+            </div>
+
+            <div
+                id="ai-status"
+                class="status"
+            >
+                Initialisation...
+            </div>
+
+        </header>
+
+
+        <section
+            id="chat-messages"
+            class="chat-messages"
+        >
+
+            <div
+                id="welcome-msg"
+                class="message ai"
+            >
+                Bonjour ! Je suis l'assistant IA de ce CV.
+                Je peux répondre aux questions concernant
+                le parcours, les compétences, les expériences
+                et les formations présentées dans le CV.
+            </div>
+
+            <div class="message system">
+                🔒 Les réponses sont limitées aux informations
+                présentes dans le CV.
+            </div>
+
+        </section>
+
+
+        <form
+            id="chat-form"
+            class="chat-input-area"
+        >
+
+            <input
+                id="user-input"
+                type="text"
+                autocomplete="off"
+                placeholder="Chargement de l'IA..."
+                disabled
+            >
+
+            <button
+                id="send-btn"
+                type="submit"
+                disabled
+            >
+                Envoyer
+            </button>
+
+        </form>
+
+    </aside>
+
+
+    <!-- =========================================================
+         APPLICATION
+    ========================================================= -->
+
+    <script type="module">
+
+        /*
+         * IMPORTANT
+         *
+         * Le chargement de Transformers.js est effectué
+         * officiellement depuis jsDelivr.
+         *
+         * Il ne faut PAS utiliser :
+         *
+         * https://jsdelivr.net
+         *
+         * qui était présent dans les anciennes versions.
+         */
+
+        import {
+            pipeline,
+            env
+        } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1";
+
+
+        /* =========================================================
+           CONFIGURATION
+        ========================================================= */
+
+        env.allowLocalModels = false;
+
+        const CV_FILE = "./cv.md";
+
+        /*
+         * Modèle français de Question Answering.
+         *
+         * CamemBERT entraîné sur FQuAD.
+         */
+
+        const MODEL =
+            "onnx-community/camembertav2-base-fquad";
+
+
+        /* =========================================================
+           VARIABLES
+        ========================================================= */
+
         let cvTextContent = "";
+
         let qaPipeline = null;
 
-        // Écoute de la touche Entrée pour valider la question
-        document.getElementById('user-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') actionSendMessage();
-        });
+        let applicationReady = false;
 
-        // Mini-convertisseur Markdown autonome
-        function parseMarkdownLéger(md) {
-            return md
-                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-                .replace(/^\- (.*$)/gim, '<li>$1</li>')
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/\n([^\n<>]+)\n/g, '<p>$1</p>');
+
+        /* =========================================================
+           DOM
+        ========================================================= */
+
+        const cvRender =
+            document.getElementById("cv-render");
+
+        const statusEl =
+            document.getElementById("ai-status");
+
+        const welcomeMsg =
+            document.getElementById("welcome-msg");
+
+        const userInput =
+            document.getElementById("user-input");
+
+        const sendBtn =
+            document.getElementById("send-btn");
+
+        const chatForm =
+            document.getElementById("chat-form");
+
+        const chatMessages =
+            document.getElementById("chat-messages");
+
+
+        /* =========================================================
+           UTILITAIRES
+        ========================================================= */
+
+        function setStatus(text, type = "") {
+
+            statusEl.textContent = text;
+
+            statusEl.className = "status";
+
+            if (type) {
+                statusEl.classList.add(type);
+            }
         }
 
-        async function startApp() {
-            const statusEl = document.getElementById('ai-status');
-            const userInput = document.getElementById('user-input');
-            const sendBtn = document.getElementById('send-btn');
-            const welcomeMsg = document.getElementById('welcome-msg');
+
+        function appendMessage(text, sender = "ai") {
+
+            const message =
+                document.createElement("div");
+
+            message.className =
+                `message ${sender}`;
+
+            message.textContent = text;
+
+            chatMessages.appendChild(message);
+
+            chatMessages.scrollTop =
+                chatMessages.scrollHeight;
+        }
+
+
+        /* =========================================================
+           MARKDOWN
+        ========================================================= */
+
+        function escapeHtml(text) {
+
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+
+        function parseMarkdown(md) {
+
+            /*
+             * Convertisseur volontairement léger.
+             *
+             * Le CV reste en Markdown comme source.
+             * L'IA travaille sur le texte original.
+             */
+
+            let text = escapeHtml(md);
+
+
+            /* Titres */
+
+            text = text.replace(
+                /^### (.+)$/gm,
+                "<h3>$1</h3>"
+            );
+
+            text = text.replace(
+                /^## (.+)$/gm,
+                "<h2>$1</h2>"
+            );
+
+            text = text.replace(
+                /^# (.+)$/gm,
+                "<h1>$1</h1>"
+            );
+
+
+            /* Gras */
+
+            text = text.replace(
+                /\*\*(.+?)\*\*/g,
+                "<strong>$1</strong>"
+            );
+
+
+            /* Italique */
+
+            text = text.replace(
+                /(?<!\*)\*([^*]+)\*(?!\*)/g,
+                "<em>$1</em>"
+            );
+
+
+            /*
+             * Listes
+             */
+
+            text = text.replace(
+                /^\s*[-*] (.+)$/gm,
+                "<li>$1</li>"
+            );
+
+
+            /*
+             * Regrouper les li consécutifs
+             */
+
+            text = text.replace(
+                /(<li>.*<\/li>\n?)+/g,
+                match => `<ul>${match}</ul>`
+            );
+
+
+            /*
+             * Paragraphes
+             */
+
+            const lines =
+                text.split("\n");
+
+            const result = [];
+
+            let paragraph = [];
+
+
+            function flushParagraph() {
+
+                if (!paragraph.length) {
+                    return;
+                }
+
+                const content =
+                    paragraph.join("<br>");
+
+                if (
+                    !content.startsWith("<h1>") &&
+                    !content.startsWith("<h2>") &&
+                    !content.startsWith("<h3>") &&
+                    !content.startsWith("<ul>")
+                ) {
+
+                    result.push(
+                        `<p>${content}</p>`
+                    );
+
+                } else {
+
+                    result.push(content);
+                }
+
+                paragraph = [];
+            }
+
+
+            for (const line of lines) {
+
+                const trimmed =
+                    line.trim();
+
+                if (!trimmed) {
+
+                    flushParagraph();
+
+                    continue;
+                }
+
+                if (
+                    trimmed.startsWith("<h1>") ||
+                    trimmed.startsWith("<h2>") ||
+                    trimmed.startsWith("<h3>") ||
+                    trimmed.startsWith("<ul>")
+                ) {
+
+                    flushParagraph();
+
+                    result.push(trimmed);
+
+                } else {
+
+                    paragraph.push(trimmed);
+                }
+            }
+
+            flushParagraph();
+
+
+            return result.join("\n");
+        }
+
+
+        /* =========================================================
+           CHARGEMENT DU CV
+        ========================================================= */
+
+        async function loadCV() {
 
             try {
-                // Étape 1 : Récupération du fichier cv.md avec bris de cache temporel strict
-                const response = await fetch('./cv.md?t=' + Date.now());
-                if (!response.ok) throw new Error(`Fichier cv.md introuvable (Erreur HTTP ${response.status})`);
-                
-                cvTextContent = await response.text();
-                document.getElementById('cv-render').innerHTML = parseMarkdownLéger(cvTextContent);
 
-                // Étape 2 : Détection et Chargement du pipeline IA via l'objet global exposé
-                statusEl.innerText = "Téléchargement IA (~40 Mo)...";
-                
-                // Extraction via l'objet global exact instancié par le CDN
-                const transformers = window['@xenova/transformers'] || window.transformers;
-                if (!transformers) throw new Error("La bibliothèque d'IA n'a pas pu être chargée par le réseau.");
-                
-                qaPipeline = await transformers.pipeline('question-answering', 'Xenova/distilbert-base-cased-distilled-squad');
-                
-                // Étape 3 : Libération des champs
-                statusEl.innerText = "⚡ Prêt (Local)";
-                statusEl.style.background = "#22c55e";
-                welcomeMsg.innerText = "Modèle prêt ! Posez-moi vos questions sur le parcours ou les compétences figurant sur le CV.";
-                
-                userInput.disabled = false;
-                sendBtn.disabled = false;
-                userInput.placeholder = "Posez une question sur le CV...";
+                setStatus("Chargement du CV...");
+
+                /*
+                 * Même logique que ton projet JSON fonctionnel :
+                 *
+                 * fetch(...)
+                 */
+
+                const response =
+                    await fetch(
+                        `${CV_FILE}?v=${Date.now()}`,
+                        {
+                            cache: "no-store"
+                        }
+                    );
+
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        `Erreur HTTP ${response.status}`
+                    );
+                }
+
+
+                cvTextContent =
+                    await response.text();
+
+
+                if (!cvTextContent.trim()) {
+
+                    throw new Error(
+                        "Le fichier cv.md est vide."
+                    );
+                }
+
+
+                /*
+                 * Affichage
+                 */
+
+                cvRender.innerHTML =
+                    parseMarkdown(cvTextContent);
+
+
+                console.log(
+                    "✅ CV chargé :",
+                    cvTextContent.length,
+                    "caractères"
+                );
+
+
+                return true;
 
             } catch (error) {
-                document.getElementById('cv-render').innerHTML = `
-                    <p style='color:red; font-weight:bold;'>
-                        ❌ Erreur d'initialisation de l'application.<br>
-                        <span style='font-size:0.85rem; color:#666;'>
-                            Détails : ${error.message}. Assurez-vous que le fichier 'cv.md' se trouve à la racine.
-                        </span>
-                    </p>`;
-                statusEl.innerText = "❌ Échec";
-                console.error(error);
+
+                console.error(
+                    "❌ Erreur CV :",
+                    error
+                );
+
+
+                cvRender.innerHTML = `
+
+                    <div class="cv-error">
+
+                        <strong>
+                            ❌ Impossible de charger le CV
+                        </strong>
+
+                        <p>
+                            Le fichier <strong>cv.md</strong>
+                            n'a pas pu être récupéré.
+                        </p>
+
+                        <p>
+                            Erreur :
+                            ${escapeHtml(error.message)}
+                        </p>
+
+                        <p>
+                            Vérifiez que <strong>cv.md</strong>
+                            se trouve bien au même niveau que
+                            <strong>index.html</strong>.
+                        </p>
+
+                    </div>
+
+                `;
+
+                setStatus("Erreur CV", "error");
+
+                return false;
             }
         }
 
-        function appendMessage(text, sender) {
-            const container = document.getElementById('chat-messages');
-            const msgBubble = document.createElement('div');
-            msgBubble.classList.add('message', sender);
-            msgBubble.innerText = text;
-            container.appendChild(msgBubble);
-            container.scrollTop = container.scrollHeight;
-        }
 
-        async function actionSendMessage() {
-            const userInput = document.getElementById('user-input');
-            const sendBtn = document.getElementById('send-btn');
-            const query = userInput.value.trim();
-            if (!query || !qaPipeline) return;
+        /* =========================================================
+           INITIALISATION IA
+        ========================================================= */
 
-            appendMessage(query, 'user');
-            userInput.value = '';
-            
-            userInput.disabled = true;
-            sendBtn.disabled = true;
+        async function initIA() {
 
             try {
-                const result = await qaPipeline(query, cvTextContent);
-                
-                if (result.score < 0.005 || !result.answer.trim()) {
-                    appendMessage("Désolé, je ne trouve pas cette réponse dans le document. Je suis verrouillé pour ne répondre qu'à partir des faits présents dans le CV.", 'ai');
+
+                setStatus("Préparation IA...");
+
+
+                /*
+                 * Détection WebGPU.
+                 *
+                 * WebGPU peut accélérer fortement
+                 * les modèles Transformers.js.
+                 */
+
+                let options = {};
+
+
+                if ("gpu" in navigator) {
+
+                    console.log(
+                        "⚡ WebGPU détecté"
+                    );
+
+                    options.device = "webgpu";
+
                 } else {
-                    appendMessage(`D'après le CV : "${result.answer.trim()}"`, 'ai');
+
+                    console.log(
+                        "ℹ️ WebGPU indisponible : WASM"
+                    );
                 }
-            } catch (err) {
-                appendMessage("Une erreur interne est survenue lors de l'analyse.", 'ai');
-                console.error(err);
+
+
+                setStatus(
+                    "Téléchargement du modèle..."
+                );
+
+
+                console.log(
+                    "Téléchargement modèle :",
+                    MODEL
+                );
+
+
+                qaPipeline =
+                    await pipeline(
+                        "question-answering",
+                        MODEL,
+                        options
+                    );
+
+
+                /*
+                 * Le modèle est réellement prêt.
+                 */
+
+                applicationReady = true;
+
+
+                setStatus(
+                    "⚡ IA prête",
+                    "ready"
+                );
+
+
+                welcomeMsg.textContent =
+                    "Je suis prêt ! Posez-moi une question sur le parcours, les compétences, les expériences ou les formations du candidat.";
+
+
+                userInput.disabled =
+                    false;
+
+                sendBtn.disabled =
+                    false;
+
+                userInput.placeholder =
+                    "Posez une question sur le CV...";
+
+
+                userInput.focus();
+
+
+                console.log(
+                    "✅ IA prête"
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "❌ Erreur IA :",
+                    error
+                );
+
+
+                /*
+                 * Si WebGPU échoue, on retente automatiquement
+                 * avec WASM.
+                 */
+
+                if (options.device === "webgpu") {
+
+                    console.log(
+                        "⚠️ WebGPU échoué."
+                    );
+
+                    console.log(
+                        "↩️ Nouvelle tentative en WASM..."
+                    );
+
+
+                    try {
+
+                        setStatus(
+                            "Nouvelle tentative..."
+                        );
+
+
+                        qaPipeline =
+                            await pipeline(
+                                "question-answering",
+                                MODEL
+                            );
+
+
+                        applicationReady = true;
+
+
+                        setStatus(
+                            "⚡ IA prête",
+                            "ready"
+                        );
+
+
+                        welcomeMsg.textContent =
+                            "Je suis prêt ! Posez-moi une question sur le CV.";
+
+
+                        userInput.disabled =
+                            false;
+
+                        sendBtn.disabled =
+                            false;
+
+                        userInput.placeholder =
+                            "Posez une question sur le CV...";
+
+
+                        userInput.focus();
+
+
+                        return;
+
+                    } catch (fallbackError) {
+
+                        console.error(
+                            "❌ Échec WASM :",
+                            fallbackError
+                        );
+
+                        error =
+                            fallbackError;
+                    }
+                }
+
+
+                setStatus(
+                    "Erreur IA",
+                    "error"
+                );
+
+
+                welcomeMsg.textContent =
+                    "Le modèle IA n'a pas pu être chargé dans ce navigateur. Consultez la console du navigateur pour le détail.";
+
+
+                userInput.disabled =
+                    true;
+
+                sendBtn.disabled =
+                    true;
+            }
+        }
+
+
+        /* =========================================================
+           QUESTIONS
+        ========================================================= */
+
+        async function answerQuestion(question) {
+
+            if (
+                !applicationReady ||
+                !qaPipeline
+            ) {
+
+                return;
             }
 
-            userInput.disabled = false;
-            sendBtn.disabled = false;
+
+            const query =
+                question.trim();
+
+
+            if (!query) {
+                return;
+            }
+
+
+            appendMessage(
+                query,
+                "user"
+            );
+
+
+            userInput.value = "";
+
+            userInput.disabled = true;
+
+            sendBtn.disabled = true;
+
+
+            const thinking =
+                document.createElement("div");
+
+            thinking.className =
+                "message ai";
+
+            thinking.textContent =
+                "🔎 Recherche dans le CV...";
+
+            chatMessages.appendChild(
+                thinking
+            );
+
+            chatMessages.scrollTop =
+                chatMessages.scrollHeight;
+
+
+            try {
+
+                /*
+                 * Le contexte fourni au modèle est UNIQUEMENT
+                 * le contenu du CV.
+                 */
+
+                const result =
+                    await qaPipeline(
+                        query,
+                        cvTextContent
+                    );
+
+
+                thinking.remove();
+
+
+                /*
+                 * Protection contre les réponses faibles.
+                 *
+                 * Pour un modèle extractif, on exige
+                 * un score raisonnable.
+                 */
+
+                const score =
+                    Number(result.score || 0);
+
+
+                if (
+                    !result.answer ||
+                    score < 0.20
+                ) {
+
+                    appendMessage(
+                        "Je ne trouve pas cette information de manière suffisamment fiable dans le CV. Je suis limité aux informations présentes dans ce document.",
+                        "ai"
+                    );
+
+                } else {
+
+                    appendMessage(
+                        `D'après le CV : ${result.answer.trim()}`,
+                        "ai"
+                    );
+                }
+
+
+            } catch (error) {
+
+                thinking.remove();
+
+
+                console.error(
+                    "❌ Erreur question :",
+                    error
+                );
+
+
+                appendMessage(
+                    "Une erreur est survenue pendant l'analyse de votre question.",
+                    "ai"
+                );
+            }
+
+
+            userInput.disabled =
+                false;
+
+            sendBtn.disabled =
+                false;
+
             userInput.focus();
         }
 
-        // Lancement direct
+
+        /* =========================================================
+           EVENEMENTS
+        ========================================================= */
+
+        chatForm.addEventListener(
+            "submit",
+            function(event) {
+
+                event.preventDefault();
+
+                answerQuestion(
+                    userInput.value
+                );
+            }
+        );
+
+
+        /* =========================================================
+           DEMARRAGE
+        ========================================================= */
+
+        async function startApp() {
+
+            console.log(
+                "🚀 Démarrage CV IA..."
+            );
+
+
+            /*
+             * 1 — CV
+             */
+
+            const cvLoaded =
+                await loadCV();
+
+
+            if (!cvLoaded) {
+
+                return;
+            }
+
+
+            /*
+             * 2 — IA
+             *
+             * On ne commence qu'après le chargement
+             * complet du CV.
+             */
+
+            await initIA();
+        }
+
+
         startApp();
+
     </script>
+
 </body>
 </html>
+```

@@ -3,11 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mon CV Interactif & IA Ultra-Rapide</title>
-    
-    <!-- Chargement global de l'IA (CDN standard) -->
-    <script src="https://jsdelivr.net"></script>
-    
+    <title>Mon CV Interactif & IA Autonome</title>
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; }
         body { font-family: system-ui, sans-serif; margin: 0; padding: 0; display: flex; background: var(--bg); color: var(--text); height: 100vh; }
@@ -45,20 +41,29 @@
         </div>
         <div class="chat-input-area">
             <input type="text" id="user-input" placeholder="Attente du modèle IA..." disabled>
-            <button id="send-btn" onclick="actionSendMessage()" disabled>Envoyer</button>
+            <button id="send-btn" disabled>Envoyer</button>
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        // Importation native sécurisée et isolée du module Hugging Face
+        import { pipeline } from 'https://jsdelivr.net';
+
         let cvTextContent = "";
         let qaPipeline = null;
 
-        // Écoute de la touche Entrée pour valider la question
-        document.getElementById('user-input').addEventListener('keypress', function(e) {
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const statusEl = document.getElementById('ai-status');
+        const welcomeMsg = document.getElementById('welcome-msg');
+
+        // Attribution des événements directement dans le module
+        sendBtn.addEventListener('click', actionSendMessage);
+        userInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') actionSendMessage();
         });
 
-        // Mini-convertisseur Markdown natif très rapide pour éviter d'importer 'marked'
+        // Mini-convertisseur Markdown autonome
         function parseMarkdownLéger(md) {
             return md
                 .replace(/^# (.*$)/gim, '<h1>$1</h1>')
@@ -70,29 +75,20 @@
                 .replace(/\n([^\n<>]+)\n/g, '<p>$1</p>');
         }
 
-        // CHARGEMENT ASYNCHRONE
         async function startApp() {
-            const statusEl = document.getElementById('ai-status');
-            const userInput = document.getElementById('user-input');
-            const sendBtn = document.getElementById('send-btn');
-            const welcomeMsg = document.getElementById('welcome-msg');
-
             try {
-                // Étape 1 : Récupérer le fichier cv.md
-                const response = await fetch('cv.md?v=' + Math.random());
+                // Étape 1 : Récupération du fichier cv.md
+                const response = await fetch('cv.md?v=' + Date.now());
                 if (!response.ok) throw new Error(`Fichier cv.md introuvable (Erreur HTTP ${response.status})`);
                 
                 cvTextContent = await response.text();
-                
-                // Rendu HTML via notre fonction interne sans dépendance externe
                 document.getElementById('cv-render').innerHTML = parseMarkdownLéger(cvTextContent);
 
-                // Étape 2 : Lancement du téléchargement de l'IA
+                // Étape 2 : Chargement de la structure IA
                 statusEl.innerText = "Téléchargement IA (~40 Mo)...";
+                qaPipeline = await pipeline('question-answering', 'Xenova/distilbert-base-cased-distilled-squad');
                 
-                qaPipeline = await window.transformers.pipeline('question-answering', 'Xenova/distilbert-base-cased-distilled-squad');
-                
-                // Étape 3 : Libération de l'interface
+                // Étape 3 : Libération des champs
                 statusEl.innerText = "⚡ Prêt (Local)";
                 statusEl.style.background = "#22c55e";
                 welcomeMsg.innerText = "Modèle prêt ! Posez-moi vos questions sur le parcours ou les compétences figurant sur le CV.";
@@ -106,7 +102,7 @@
                     <p style='color:red; font-weight:bold;'>
                         ❌ Erreur d'initialisation de l'application.<br>
                         <span style='font-size:0.85rem; color:#666;'>
-                            Détails : ${error.message}. Assurez-vous que le fichier 'cv.md' est bien orthographié et présent à la racine.
+                            Détails : ${error.message}. Assurez-vous que le fichier 'cv.md' se trouve bien au même niveau que 'index.html'.
                         </span>
                     </p>`;
                 statusEl.innerText = "❌ Échec";
@@ -123,12 +119,8 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        // TRAITEMENT DE LA QUESTION ET VERROUILLAGE
         async function actionSendMessage() {
-            const userInput = document.getElementById('user-input');
-            const sendBtn = document.getElementById('send-btn');
             const query = userInput.value.trim();
-            
             if (!query || !qaPipeline) return;
 
             appendMessage(query, 'user');
@@ -140,7 +132,6 @@
             try {
                 const result = await qaPipeline(query, cvTextContent);
                 
-                // Filtre de sécurité strict contre le hors-sujet
                 if (result.score < 0.01 || !result.answer.trim()) {
                     appendMessage("Désolé, je ne trouve pas cette réponse dans le document. Je suis verrouillé pour ne répondre qu'à partir des faits présents dans le CV.", 'ai');
                 } else {
@@ -156,7 +147,7 @@
             userInput.focus();
         }
 
-        // Lancement immédiat de l'application
+        // Lancement direct
         startApp();
     </script>
 </body>

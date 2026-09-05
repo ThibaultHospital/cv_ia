@@ -120,7 +120,7 @@
         async function loadMarkdownCV() {
             try {
                 // Remplacez 'cv.md' par le chemin exact de votre fichier sur votre dépôt GitHub
-                const response = await fetch('cv.md');
+                const response = await fetch('knowledge/data-cv.md');
                 if (!response.ok) throw new Error('Impossible de charger le fichier markdown');
                 
                 cvTextContent = await response.text();

@@ -54,16 +54,27 @@
         let qaPipeline = null;
 
         // 1. Charger et afficher le fichier Markdown
-        async function loadMarkdownCV() {
-            try {
-                const response = await fetch('cv.md');
-                if (!response.ok) throw new Error();
-                cvTextContent = await response.text();
-                document.getElementById('cv-render').innerHTML = marked.parse(cvTextContent);
-            } catch (e) {
-                document.getElementById('cv-render').innerHTML = "<p style='color:red;'>Créez un fichier 'cv.md' à côté de index.html.</p>";
-            }
+      async function loadMarkdownCV() {
+    try {
+        // Le paramètre ?t= force le navigateur à télécharger la version la plus récente
+        const response = await fetch('./cv.md?t=' + Date.now());
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP : ${response.status}`);
         }
+        cvTextContent = await response.text();
+        document.getElementById('cv-render').innerHTML = marked.parse(cvTextContent);
+    } catch (e) {
+        document.getElementById('cv-render').innerHTML = `
+            <p style='color:red; font-weight:bold;'>
+                ❌ Impossible de charger le fichier 'cv.md'.<br>
+                <span style='font-size:0.85rem; color:#666;'>
+                    Vérifiez que le fichier est nommé exactement <b>cv.md</b> (tout en minuscules) 
+                    et qu'il se trouve dans le même dossier que index.html.
+                </span>
+            </p>`;
+        console.error("Erreur de chargement du Markdown :", e);
+    }
+}
 
         // 2. Initialiser le modèle de Question-Answering (Poids ultra-léger ~40Mo, chargement instantané)
         async function initIA() {

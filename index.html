@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon CV Interactif & Assistant IA</title>
+    <!-- Chargement de Marked pour convertir le Markdown en HTML -->
+    <script src="https://jsdelivr.net"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --chat-bg: #ffffff;
+        }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            background-color: var(--bg);
+            color: var(--text);
+            height: 100vh;
+        }
+        /* Layout principal split-screen */
+        #cv-container {
+            width: 60%;
+            padding: 2rem;
+            overflow-y: auto;
+            border-right: 1px solid #e2e8f0;
+            background: #ffffff;
+        }
+        #ai-container {
+            width: 40%;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+        }
+        /* Styles du Chat Bot */
+        .chat-header {
+            padding: 1rem;
+            background: var(--primary);
+            color: white;
+            font-weight: bold;
+        }
+        .chat-messages {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .message {
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            max-width: 85%;
+            line-height: 1.4;
+        }
+        .message.user {
+            background: var(--primary);
+            color: white;
+            align-self: flex-end;
+        }
+        .message.ai {
+            background: #e2e8f0;
+            color: var(--text);
+            align-self: flex-start;
+        }
+        .chat-input-area {
+            padding: 1rem;
+            display: flex;
+            gap: 0.5rem;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+        }
+        input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.25rem;
+        }
+        button {
+            padding: 0.75rem 1.25rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+        }
+        button:hover { background: #1d4ed8; }
+        /* Style du markdown rendu */
+        .cv-content h1 { color: var(--primary); border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; }
+        .cv-content h2 { margin-top: 1.5rem; }
+    </style>
+</head>
+<body>
+
+    <!-- Section Gauche : Rendu du CV Markdown -->
+    <div id="cv-container">
+        <div id="cv-render" class="cv-content">Chargement du CV...</div>
+    </div>
+
+    <!-- Section Droite : L'Assistant IA dans le navigateur -->
+    <div id="ai-container">
+        <div class="chat-header">🤖 Assistant Recruteur IA (Local)</div>
+        <div class="chat-messages" id="chat-messages">
+            <div class="message ai">Bonjour ! Je suis l'IA dédiée à ce CV. Posez-moi vos questions sur le parcours du candidat (compétences, expériences...).</div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="user-input" placeholder="Posez une question sur le CV...">
+            <button onclick="sendMessage()">Envoyer</button>
+        </div>
+    </div>
+
+    <script>
+        let cvTextContent = "";
+
+        // 1. Transformer et lire le fichier Markdown (ex: cv.md)
+        async function loadMarkdownCV() {
+            try {
+                // Remplacez 'cv.md' par le chemin exact de votre fichier sur votre dépôt GitHub
+                const response = await fetch('cv.md');
+                if (!response.ok) throw new Error('Impossible de charger le fichier markdown');
+                
+                cvTextContent = await response.text();
+                
+                // Utilisation de la librairie Marked pour injecter le HTML transformé
+                document.getElementById('cv-render').innerHTML = marked.parse(cvTextContent);
+            } catch (error) {
+                document.getElementById('cv-render').innerHTML = "<p style='color:red;'>Erreur lors du chargement du fichier Markdown (Assurez-vous d'avoir un fichier nommé 'cv.md' à la racine).</p>";
+                console.error(error);
+            }
+        }
+
+        // 2. Gestion des messages du Chat
+        function appendMessage(text, sender) {
+            const container = document.getElementById('chat-messages');
+            const msgBubble = document.createElement('div');
+            msgBubble.classList.add('message', sender);
+            msgBubble.innerText = text;
+            container.appendChild(msgBubble);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const query = input.value.trim();
+            if (!query) return;
+
+            appendMessage(query, 'user');
+            input.value = '';
+
+            // Simulation d'une IA dans le navigateur exploitant le contexte textuel du CV
+            // (Pour intégrer un modèle WebLLM plus lourd comme Hugging Face Transformers.js ou WebGPU, voir note ci-dessous)
+            appendMessage("Analyse de la question en cours...", 'ai');
+            
+            setTimeout(() => {
+                // Suppression du message temporaire
+                const messages = document.getElementById('chat-messages');
+                messages.removeChild(messages.lastChild);
+
+                const reply = simulateAIResponse(query, cvTextContent);
+                appendMessage(reply, 'ai');
+            }, 1000);
+        }
+
+        // Émulateur d'IA contextuel basé sur les mots-clés du CV (Extensible en vrai WebLLM Transformers)
+        function simulateAIResponse(question, context) {
+            const q = question.toLowerCase();
+            if (q.includes('compétence') || q.includes('techno') || q.includes('sait faire')) {
+                return "D'après son CV, le candidat maîtrise des compétences clés. Vous pouvez observer les détails dans la section dédiée à gauche de votre écran.";
+            }
+            if (q.includes('expérience') || q.includes('poste') || q.includes('travaillé')) {
+                return "Le candidat possède plusieurs expériences significatives listées dans son parcours. Souhaitez-vous des détails sur un projet en particulier ?";
+            }
+            if (q.includes('contact') || q.includes('email') || q.includes('téléphone')) {
+                return "Les coordonnées du candidat (liens, réseaux sociaux) se trouvent en haut de son CV.";
+            }
+            return "Je suis configuré pour répondre à partir du fichier Markdown fourni. N'hésitez pas à reformuler votre question concernant ses compétences ou son parcours.";
+        }
+
+        // Exécuter au chargement de la page
+        window.onload = () => {
+            loadMarkdownCV();
+        };
+    </script>
+</body>
+</html>

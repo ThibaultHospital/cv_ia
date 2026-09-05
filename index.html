@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon CV Interactif & IA Ultra-Rapide</title>
     
-    <!-- Scripts stables chargés de manière globale -->
+    <!-- Scripts CDN stables chargés globalement -->
     <script src="https://jsdelivr.net"></script>
     <script src="https://jsdelivr.net"></script>
     
@@ -30,19 +30,19 @@
 <body>
 
     <div id="cv-container">
-        <div id="cv-render" class="cv-content">Initialisation du CV...</div>
+        <div id="cv-render" class="cv-content">Chargement du CV...</div>
     </div>
 
     <div id="ai-container">
         <div class="chat-header">
             <span>🤖 Assistant CV (IA Verrouillée)</span>
-            <span id="ai-status" class="status">Initialisation...</span>
+            <span id="ai-status" class="status">Connexion au script...</span>
         </div>
         <div class="chat-messages" id="chat-messages">
-            <div class="message ai">Bonjour ! Je prépare le modèle d'analyse locale pour pouvoir répondre à vos questions sur le CV.</div>
+            <div class="message ai" id="welcome-msg">Bonjour ! Je télécharge le modèle IA dans votre navigateur pour pouvoir analyser ce CV. Veuillez patienter...</div>
         </div>
         <div class="chat-input-area">
-            <input type="text" id="user-input" placeholder="Posez une question sur le CV..." disabled>
+            <input type="text" id="user-input" placeholder="Attente du modèle IA..." disabled>
             <button id="send-btn" onclick="actionSendMessage()" disabled>Envoyer</button>
         </div>
     </div>
@@ -51,15 +51,14 @@
         let cvTextContent = "";
         let qaPipeline = null;
 
-        // Force l'écoute de la touche Entrée pour envoyer le message
+        // Force l'écoute de la touche Entrée pour valider
         document.getElementById('user-input').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') actionSendMessage();
         });
 
-        // 1. Charger et afficher le fichier Markdown de manière sécurisée
+        // 1. Charger et afficher le fichier Markdown
         async function loadMarkdownCV() {
             try {
-                // Utilisation d'un chemin relatif strict et bypass du cache
                 const response = await fetch('./cv.md?v=' + Math.random());
                 if (!response.ok) throw new Error(`Code erreur HTTP : ${response.status}`);
                 
@@ -70,32 +69,38 @@
                     <p style='color:red; font-weight:bold;'>
                         ❌ Impossible de lire le fichier 'cv.md'.<br>
                         <span style='font-size:0.85rem; color:#666;'>
-                            Erreur de liaison réseau. Vérifiez que le fichier est bien présent à la racine.
+                            Assurez-vous que le fichier cv.md est à la racine de votre dépôt GitHub.
                         </span>
                     </p>`;
-                console.error("Erreur Markdown : ", e);
+                console.error(e);
             }
         }
 
-        // 2. Initialisation du modèle IA Xenova en local
+        // 2. Initialisation du modèle IA local via l'API globale corrigée
         async function initIA() {
             const statusEl = document.getElementById('ai-status');
             const userInput = document.getElementById('user-input');
             const sendBtn = document.getElementById('send-btn');
+            const welcomeMsg = document.getElementById('welcome-msg');
             
             try {
-                statusEl.innerText = "Téléchargement de l'IA...";
+                statusEl.innerText = "Téléchargement du modèle (40 Mo)...";
                 
-                // Accès direct via l'objet global transféré par le script CDN standard
-                qaPipeline = await window.NT.pipeline('question-answering', 'Xenova/distilbert-base-cased-distilled-squad');
+                // Correction majeure : Utilisation de la vraie variable globale de l'API Xenova
+                qaPipeline = await window.transformers.pipeline('question-answering', 'Xenova/distilbert-base-cased-distilled-squad');
                 
                 statusEl.innerText = "⚡ Prêt (Local)";
                 statusEl.style.background = "#22c55e";
+                welcomeMsg.innerText = "Modèle prêt ! Posez-moi vos questions sur le parcours, les compétences ou les formations figurant sur le CV.";
+                
+                // Activation de l'interface
                 userInput.disabled = false;
                 sendBtn.disabled = false;
+                userInput.placeholder = "Posez une question sur le CV...";
             } catch (error) {
-                statusEl.innerText = "❌ Erreur IA";
-                console.error("Erreur d'initialisation du modèle :", error);
+                statusEl.innerText = "❌ Erreur de chargement IA";
+                welcomeMsg.innerText = "Désolé, le modèle IA n'a pas pu s'initialiser dans votre navigateur.";
+                console.error("Erreur d'initialisation :", error);
             }
         }
 
@@ -118,30 +123,33 @@
 
             appendMessage(query, 'user');
             userInput.value = '';
+            
+            // Verrouiller les champs pendant le calcul
             userInput.disabled = true;
             sendBtn.disabled = true;
 
             try {
-                // L'IA analyse le texte récupéré du CV Markdown
+                // L'IA extrait la réponse depuis le texte brut
                 const result = await qaPipeline(query, cvTextContent);
                 
-                // Seuil de sécurité strict contre les hallucinations
+                // Filtre de sécurité strict contre le hors-sujet
                 if (result.score < 0.01 || !result.answer.trim()) {
-                    appendMessage("Désolé, je ne trouve pas cette information dans le CV. Je suis programmé pour ne répondre qu'aux éléments explicitement écrits.", 'ai');
+                    appendMessage("Désolé, je ne trouve pas cette réponse dans le document. Je suis verrouillé pour ne répondre qu'à partir des faits présents dans le CV.", 'ai');
                 } else {
                     appendMessage(`D'après le CV : "${result.answer.trim()}"`, 'ai');
                 }
             } catch (err) {
-                appendMessage("Une erreur technique est survenue lors de l'analyse.", 'ai');
+                appendMessage("Une erreur interne est survenue lors de l'analyse.", 'ai');
                 console.error(err);
             }
 
+            // Déverrouiller les champs
             userInput.disabled = false;
             sendBtn.disabled = false;
             userInput.focus();
         }
 
-        // Lancement séquentiel automatique au chargement global de la page
+        // Démarrage automatique
         window.addEventListener('DOMContentLoaded', async () => {
             await loadMarkdownCV();
             await initIA();

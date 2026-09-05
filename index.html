@@ -492,7 +492,7 @@ async function loadAI() {
     userInput.disabled = false;
     sendBtn.disabled = false;
 
-    welcome.textContent = "Bonjour 👋 Je suis prêt à répondre à vos questions sur le parcours, les expériences et les compétences présentées dans ce CV.";
+    welcome.textContent = "Bonjour 👋 Je suis prêt à répondre à vos questions sur le parcours, les expériences et les compétences présentées dans ce CV.\n\nPosez une vraie question, par exemple : « Où a-t-il travaillé comme technicien informatique ? » plutôt qu'un simple mot-clé.";
 }
 
 function activateFallback(reason) {
@@ -535,13 +535,46 @@ async function askAI(question) {
                 addMessage("Je n'ai pas trouvé de passage du CV correspondant à cette question.", "ai");
             }
         } else {
-            const result = await qaPipeline(question, cvText);
+            // Le modèle ne peut lire qu'un texte assez court à la fois (quelques
+            // centaines de mots). Sur un CV entier passé d'un bloc, la réponse est
+            // souvent tronquée ou peu fiable. On interroge donc chaque section du CV
+            // séparément, puis on garde la réponse avec le meilleur score.
+            let best = null;
+            let bestSectionTitle = "";
+
+            for (const section of cvSections) {
+                const context = section.title + ". " + section.content.join(" ");
+                if (context.trim().length < 5) continue;
+
+                try {
+                    const result = await qaPipeline(question, context);
+                    if (result && result.answer && result.answer.trim() !== "") {
+                        if (!best || result.score > best.score) {
+                            best = result;
+                            bestSectionTitle = section.title;
+                        }
+                    }
+                } catch (sectionError) {
+                    console.warn("[IA] Section ignorée (" + section.title + ") :", sectionError);
+                }
+            }
+
             thinking.remove();
 
-            if (!result || !result.answer || result.answer.trim() === "" || result.score < 0.05) {
-                addMessage("Je ne trouve pas cette information de manière suffisamment fiable dans le CV.", "ai");
+            if (!best || best.score < 0.01) {
+                // Le modèle n'est pas confiant : on propose quand même le passage
+                // le plus pertinent trouvé par mots-clés, plutôt que de ne rien dire.
+                const fallback = keywordSearch(question);
+                if (fallback) {
+                    addMessage(
+                        "Je ne suis pas certain de la réponse précise, mais voici le passage du CV le plus pertinent :\n" + fallback,
+                        "ai"
+                    );
+                } else {
+                    addMessage("Je ne trouve pas cette information dans le CV.", "ai");
+                }
             } else {
-                addMessage("D'après le CV : " + result.answer.trim(), "ai");
+                addMessage("D'après le CV (section « " + bestSectionTitle + " ») : " + best.answer.trim(), "ai");
             }
         }
     } catch (error) {

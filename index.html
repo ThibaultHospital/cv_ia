@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon CV Interactif & IA Autonome</title>
+    
+    <!-- Importation globale ultra-stable de Transformers.js -->
+    <script src="https://jsdelivr.net"></script>
+    
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; }
         body { font-family: system-ui, sans-serif; margin: 0; padding: 0; display: flex; background: var(--bg); color: var(--text); height: 100vh; }
@@ -41,25 +45,16 @@
         </div>
         <div class="chat-input-area">
             <input type="text" id="user-input" placeholder="Attente du modèle IA..." disabled>
-            <button id="send-btn" disabled>Envoyer</button>
+            <button id="send-btn" onclick="actionSendMessage()" disabled>Envoyer</button>
         </div>
     </div>
 
-    <script type="module">
-        // Importation native sécurisée et isolée du module Hugging Face
-        import { pipeline } from 'https://jsdelivr.net';
-
+    <script>
         let cvTextContent = "";
         let qaPipeline = null;
 
-        const userInput = document.getElementById('user-input');
-        const sendBtn = document.getElementById('send-btn');
-        const statusEl = document.getElementById('ai-status');
-        const welcomeMsg = document.getElementById('welcome-msg');
-
-        // Attribution des événements directement dans le module
-        sendBtn.addEventListener('click', actionSendMessage);
-        userInput.addEventListener('keypress', function(e) {
+        // Écoute de la touche Entrée pour valider la question
+        document.getElementById('user-input').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') actionSendMessage();
         });
 
@@ -76,17 +71,27 @@
         }
 
         async function startApp() {
+            const statusEl = document.getElementById('ai-status');
+            const userInput = document.getElementById('user-input');
+            const sendBtn = document.getElementById('send-btn');
+            const welcomeMsg = document.getElementById('welcome-msg');
+
             try {
-                // Étape 1 : Récupération du fichier cv.md
-                const response = await fetch('cv.md?v=' + Date.now());
+                // Étape 1 : Récupération du fichier cv.md avec bris de cache temporel strict
+                const response = await fetch('./cv.md?t=' + Date.now());
                 if (!response.ok) throw new Error(`Fichier cv.md introuvable (Erreur HTTP ${response.status})`);
                 
                 cvTextContent = await response.text();
                 document.getElementById('cv-render').innerHTML = parseMarkdownLéger(cvTextContent);
 
-                // Étape 2 : Chargement de la structure IA
+                // Étape 2 : Détection et Chargement du pipeline IA via l'objet global exposé
                 statusEl.innerText = "Téléchargement IA (~40 Mo)...";
-                qaPipeline = await pipeline('question-answering', 'Xenova/distilbert-base-cased-distilled-squad');
+                
+                // Extraction via l'objet global exact instancié par le CDN
+                const transformers = window['@xenova/transformers'] || window.transformers;
+                if (!transformers) throw new Error("La bibliothèque d'IA n'a pas pu être chargée par le réseau.");
+                
+                qaPipeline = await transformers.pipeline('question-answering', 'Xenova/distilbert-base-cased-distilled-squad');
                 
                 // Étape 3 : Libération des champs
                 statusEl.innerText = "⚡ Prêt (Local)";
@@ -102,7 +107,7 @@
                     <p style='color:red; font-weight:bold;'>
                         ❌ Erreur d'initialisation de l'application.<br>
                         <span style='font-size:0.85rem; color:#666;'>
-                            Détails : ${error.message}. Assurez-vous que le fichier 'cv.md' se trouve bien au même niveau que 'index.html'.
+                            Détails : ${error.message}. Assurez-vous que le fichier 'cv.md' se trouve à la racine.
                         </span>
                     </p>`;
                 statusEl.innerText = "❌ Échec";
@@ -120,6 +125,8 @@
         }
 
         async function actionSendMessage() {
+            const userInput = document.getElementById('user-input');
+            const sendBtn = document.getElementById('send-btn');
             const query = userInput.value.trim();
             if (!query || !qaPipeline) return;
 
@@ -132,7 +139,7 @@
             try {
                 const result = await qaPipeline(query, cvTextContent);
                 
-                if (result.score < 0.01 || !result.answer.trim()) {
+                if (result.score < 0.005 || !result.answer.trim()) {
                     appendMessage("Désolé, je ne trouve pas cette réponse dans le document. Je suis verrouillé pour ne répondre qu'à partir des faits présents dans le CV.", 'ai');
                 } else {
                     appendMessage(`D'après le CV : "${result.answer.trim()}"`, 'ai');

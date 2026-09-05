@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon CV Interactif & IA Ultra-Rapide</title>
     
-    <!-- Scripts CDN stables chargés globalement -->
+    <!-- Chargement global et immédiat des outils -->
     <script src="https://jsdelivr.net"></script>
     <script src="https://jsdelivr.net"></script>
     
@@ -36,7 +36,7 @@
     <div id="ai-container">
         <div class="chat-header">
             <span>🤖 Assistant CV (IA Verrouillée)</span>
-            <span id="ai-status" class="status">Connexion au script...</span>
+            <span id="ai-status" class="status">Initialisation...</span>
         </div>
         <div class="chat-messages" id="chat-messages">
             <div class="message ai" id="welcome-msg">Bonjour ! Je télécharge le modèle IA dans votre navigateur pour pouvoir analyser ce CV. Veuillez patienter...</div>
@@ -51,56 +51,53 @@
         let cvTextContent = "";
         let qaPipeline = null;
 
-        // Force l'écoute de la touche Entrée pour valider
+        // Écoute de la touche Entrée pour valider la question
         document.getElementById('user-input').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') actionSendMessage();
         });
 
-        // 1. Charger et afficher le fichier Markdown
-        async function loadMarkdownCV() {
-            try {
-                const response = await fetch('./cv.md?v=' + Math.random());
-                if (!response.ok) throw new Error(`Code erreur HTTP : ${response.status}`);
-                
-                cvTextContent = await response.text();
-                document.getElementById('cv-render').innerHTML = marked.parse(cvTextContent);
-            } catch (e) {
-                document.getElementById('cv-render').innerHTML = `
-                    <p style='color:red; font-weight:bold;'>
-                        ❌ Impossible de lire le fichier 'cv.md'.<br>
-                        <span style='font-size:0.85rem; color:#666;'>
-                            Assurez-vous que le fichier cv.md est à la racine de votre dépôt GitHub.
-                        </span>
-                    </p>`;
-                console.error(e);
-            }
-        }
-
-        // 2. Initialisation du modèle IA local via l'API globale corrigée
-        async function initIA() {
+        // 1. CHARGEMENT ASYNCHRONE INSPIRÉ DE VOTRE CODE (Simple, Linéaire et Robuste)
+        async function startApp() {
             const statusEl = document.getElementById('ai-status');
             const userInput = document.getElementById('user-input');
             const sendBtn = document.getElementById('send-btn');
             const welcomeMsg = document.getElementById('welcome-msg');
-            
+
             try {
-                statusEl.innerText = "Téléchargement du modèle (40 Mo)...";
+                // Étape A : Charger le fichier Markdown de manière brute
+                const response = await fetch('cv.md');
+                if (!response.ok) throw new Error(`Fichier cv.md introuvable (Code HTTP ${response.status})`);
                 
-                // Correction majeure : Utilisation de la vraie variable globale de l'API Xenova
+                cvTextContent = await response.text();
+                
+                // Conversion et affichage immédiat à gauche
+                document.getElementById('cv-render').innerHTML = marked.parse(cvTextContent);
+
+                // Étape B : Lancement du téléchargement de l'IA une fois le fichier traité
+                statusEl.innerText = "Téléchargement IA (~40 Mo)...";
+                
+                // Utilisation de l'API globale vérifiée de Transformers.js
                 qaPipeline = await window.transformers.pipeline('question-answering', 'Xenova/distilbert-base-cased-distilled-squad');
                 
+                // Étape C : Libération de l'interface utilisateur
                 statusEl.innerText = "⚡ Prêt (Local)";
                 statusEl.style.background = "#22c55e";
                 welcomeMsg.innerText = "Modèle prêt ! Posez-moi vos questions sur le parcours, les compétences ou les formations figurant sur le CV.";
                 
-                // Activation de l'interface
                 userInput.disabled = false;
                 sendBtn.disabled = false;
                 userInput.placeholder = "Posez une question sur le CV...";
+
             } catch (error) {
-                statusEl.innerText = "❌ Erreur de chargement IA";
-                welcomeMsg.innerText = "Désolé, le modèle IA n'a pas pu s'initialiser dans votre navigateur.";
-                console.error("Erreur d'initialisation :", error);
+                document.getElementById('cv-render').innerHTML = `
+                    <p style='color:red; font-weight:bold;'>
+                        ❌ Erreur d'initialisation de l'application.<br>
+                        <span style='font-size:0.85rem; color:#666;'>
+                            Détails : ${error.message}. Vérifiez que 'cv.md' se trouve bien au même niveau que 'index.html'.
+                        </span>
+                    </p>`;
+                statusEl.innerText = "❌ Échec";
+                console.error(error);
             }
         }
 
@@ -113,7 +110,7 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        // 3. Traitement de la question et sécurité de verrouillage
+        // 2. TRAITEMENT DE LA QUESTION ET SÉCURITÉ DE VERROUILLAGE
         async function actionSendMessage() {
             const userInput = document.getElementById('user-input');
             const sendBtn = document.getElementById('send-btn');
@@ -124,15 +121,15 @@
             appendMessage(query, 'user');
             userInput.value = '';
             
-            // Verrouiller les champs pendant le calcul
+            // Verrouillage des contrôles pendant le calcul
             userInput.disabled = true;
             sendBtn.disabled = true;
 
             try {
-                // L'IA extrait la réponse depuis le texte brut
+                // L'IA cherche le fragment de réponse uniquement dans le texte brut de cvTextContent
                 const result = await qaPipeline(query, cvTextContent);
                 
-                // Filtre de sécurité strict contre le hors-sujet
+                // Seuil de confiance strict pour bloquer le hors-sujet
                 if (result.score < 0.01 || !result.answer.trim()) {
                     appendMessage("Désolé, je ne trouve pas cette réponse dans le document. Je suis verrouillé pour ne répondre qu'à partir des faits présents dans le CV.", 'ai');
                 } else {
@@ -143,17 +140,14 @@
                 console.error(err);
             }
 
-            // Déverrouiller les champs
+            // Libération des contrôles
             userInput.disabled = false;
             sendBtn.disabled = false;
             userInput.focus();
         }
 
-        // Démarrage automatique
-        window.addEventListener('DOMContentLoaded', async () => {
-            await loadMarkdownCV();
-            await initIA();
-        });
+        // Lancement immédiat et direct de l'application au chargement du script
+        startApp();
     </script>
 </body>
 </html>
